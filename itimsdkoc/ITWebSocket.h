@@ -57,6 +57,8 @@ typedef void(^ITSocketDidReceiveBlock)(id message ,ITSocketReceiveType type);
 超时重连时间，默认1秒
  */
 @property (nonatomic,assign)NSTimeInterval overtime;
+
+@property (nonatomic,assign)NSTimeInterval loopovertime;
 /**@author Clarence
  *重连次数,默认5次
  */

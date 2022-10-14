@@ -2,16 +2,24 @@
 #import "ITWebSocket.h"
 #import "SRWebSocket.h"
 
+#import "LinkQueue.h"
+#import "Node.h"
+
 @interface ITWebSocket ()<SRWebSocketDelegate>
 @property (nonatomic,strong)SRWebSocket *webSocket;
 
 @property (nonatomic,assign)ITSocketStatus itSocketStatus;
 
 @property (nonatomic,weak)NSTimer *timer;
+@property (nonatomic,weak)NSTimer *looptimer;
 
 @property (nonatomic,copy)NSString *urlString;
 
 @property (nonatomic,strong)Observable *obs;
+
+@property (nonatomic,assign)bool lostIsSending;
+///构造链式队列
+@property (nonatomic,strong)LinkQueue *linkQueue ;
 
 @end
 
@@ -27,6 +35,7 @@
     dispatch_once(&onceToken, ^{
         instance = [[self alloc] init];
         instance.overtime = 3;
+        instance.loopovertime = 3;
         instance.reconnectCount = 5;
     });
     return instance;
@@ -34,6 +43,8 @@
 
 - (void)inits:(Observable *)fobs{
     _obs = fobs;
+    _linkQueue = [LinkQueue constrcutLinkQueue];
+    _lostIsSending = NO;
 }
 
 
@@ -51,6 +62,16 @@
     [[NSRunLoop currentRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
     self.timer = timer;
     [self.timer fire];
+    
+    if(self.looptimer){
+        [self.looptimer invalidate];
+        self.looptimer = nil;
+    }
+    
+    NSTimer *looptimer = [NSTimer scheduledTimerWithTimeInterval:self.loopovertime target:self selector:@selector(itSendLost) userInfo:nil repeats:YES];
+    [[NSRunLoop currentRunLoop] addTimer:looptimer forMode:NSRunLoopCommonModes];
+    self.timer = looptimer;
+    [self.timer fire];
 }
 
 - (void)itClose:(ITSocketDidCloseBlock)close{
@@ -66,17 +87,19 @@
             [self.webSocket sendString:data error:NULL];
             break;
         }
-        case ITSocketStatusFailed:
-//            [self->_obs notifyStatusObservers:@"{\"status\":\"1\",\"desc\":\"Networking error,Reconnecting\""];
+        case ITSocketStatusFailed:{
+            Node *nodeFailed = [[Node alloc] initWithData:data];
+            [_linkQueue enQueueWithNode:nodeFailed];
             [self itReconnect];
             break;
-        case ITSocketStatusClosedByServer:
-//            [self->_obs notifyStatusObservers:@"{\"status\":\"2\",\"desc\":\"Server closed your connect,Reconnecting\""];
+        }
+        case ITSocketStatusClosedByServer:{
+            Node *nodeFailed = [[Node alloc] initWithData:data];
+            [_linkQueue enQueueWithNode:nodeFailed];
             [self itReconnect];
             break;
+        }
         case ITSocketStatusClosedByUser:
-            [self->_obs notifyStatusObservers:@"{\"status\":\"3\",\"desc\":\"User closed connect\""];
-//            [self itReconnect];
             break;
     }
     
@@ -125,6 +148,18 @@
     }
 }
 
+- (void)itSendLost{
+    if(self.webSocket != nil && !_lostIsSending){
+        _lostIsSending = YES;
+        while ([_linkQueue eleCount] > 0) {
+            dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC));
+            dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+                [self itSend:[self->_linkQueue deQueue].data];
+             });
+        }
+        _lostIsSending = NO;
+    }
+}
 
 #pragma mark -- SRWebSocketDelegate
 - (void)webSocketDidOpen:(SRWebSocket *)webSocket{
