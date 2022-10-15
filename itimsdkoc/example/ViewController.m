@@ -21,7 +21,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    NSString *ipAndPort = @"ws://13.250.111.190:9922";
+    NSString *ipAndPort = @"ws://xxx.xxx.xxx.xxx:xxx";
     NSString *fromUid = @"1001_30088";
     NSString *token = @"123";
     NSString *deviceId = [self currentTimeStr];
