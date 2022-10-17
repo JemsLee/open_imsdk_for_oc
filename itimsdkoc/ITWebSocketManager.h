@@ -33,6 +33,8 @@ withFbFlag:(NSString*)fbFlag ;
 
 - (void) sendMessage:(NSString *) message;
 
+- (void) sendMessageObject:(MessageBody *) messageDic;
+
 -(void) ITWebSocketManager;
 
 //注册观察者

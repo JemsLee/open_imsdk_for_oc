@@ -153,6 +153,13 @@ withFbFlag:(NSString*)fbFlag {
     [[ITWebSocket shareManager] itSend:[AESCode aesEncrypt:message withKey:secKey]];
 }
 
+- (void) sendMessageObject:(MessageBody *) messageDic{
+    
+    NSData *data = [NSJSONSerialization dataWithJSONObject:messageDic options:kNilOptions error:nil];
+    NSString *message = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    [[ITWebSocket shareManager] itSend:[AESCode aesEncrypt:message withKey:secKey]];
+    
+}
 
 //获取当前时间戳
 - (NSString *)currentTimeStr{
